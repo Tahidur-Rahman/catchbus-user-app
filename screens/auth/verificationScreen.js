@@ -31,7 +31,24 @@ const VerificationScreen = ({ route, navigation }) => {
   const [secondDigit, setSecondDigit] = useState("");
   const [thirdDigit, setThirdDigit] = useState("");
   const [forthDigit, setForthDigit] = useState("");
-
+const onContinue = () => {
+  setIsLoading(true);
+    console.log(pin,firstDigit + secondDigit + thirdDigit + forthDigit)
+    if (pin == firstDigit + secondDigit + thirdDigit + forthDigit) {
+      setData("token", user.token);
+      dispatch(setUser(user));
+      navigation.replace("Home");
+      
+setUpdateProfile({ verified:true });
+    } else {
+      Alert.alert("", "OTP doesn't match!");
+      setFirstDigit("");
+      setSecondDigit("");
+      setThirdDigit("");
+      setForthDigit("");
+    }
+    setIsLoading(false);
+}
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
       <StatusBar translucent={false} backgroundColor={Colors.primaryColor} />
@@ -74,25 +91,7 @@ const VerificationScreen = ({ route, navigation }) => {
     return (
       <TouchableOpacity
         activeOpacity={0.9}
-        onPress={() => {
-          setIsLoading(true);
-          setTimeout(() => {
-            setIsLoading(false);
-            if (pin == firstDigit + secondDigit + thirdDigit + forthDigit) {
-              setData("token", user.token);
-              dispatch(setUser(user));
-              navigation.replace("Home");
-              
-    setUpdateProfile({ verified:true });
-            } else {
-              Alert.alert("", "OTP doesn't match!");
-              setFirstDigit("");
-              setSecondDigit("");
-              setThirdDigit("");
-              setForthDigit("");
-            }
-          }, 2000);
-        }}
+        onPress={onContinue}
         style={styles.buttonStyle}
       >
         <Text style={{ ...Fonts.whiteColor20SemiBold }}>Continue</Text>
@@ -156,12 +155,7 @@ const VerificationScreen = ({ route, navigation }) => {
             value={forthDigit}
             ref={forthTextInput}
             onChangeText={(text) => {
-              setForthDigit(text);
-              setIsLoading(true);
-              setTimeout(() => {
-                setIsLoading(false);
-                navigation.push("Home");
-              }, 2000);
+            setForthDigit(text);
             }}
           />
         </View>

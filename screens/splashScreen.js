@@ -29,7 +29,7 @@ const SplashScreen = ({ navigation }) => {
         .catch((err) => checkStatus());
       const checkStatus = () =>
         getData("user_type")
-          .then((value) => navigation.navigate("Login"))
+          .then((value) => navigation.navigate(value?"Login":"Onboarding"))
           .catch((e) => navigation.navigate("Onboarding"));
       if (data?.user) {
         console.log('data.user',data.user)

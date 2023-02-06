@@ -10,6 +10,7 @@ import {
   TextInput,
   Pressable,
   Alert,
+  Dimensions,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import { Colors, Fonts, Sizes } from "../../constants/styles";
@@ -21,9 +22,13 @@ import { useUpdateProfileMutation } from "../../redux/features/api/authApi";
 import { getData } from "../../utils/AsyncStorageManager";
 import Loading from "../../components/Loading";
 import { setUser } from "../../redux/features/rootSlice";
+import { Menu, MenuItem } from 'react-native-material-menu';
+import bus_zones from "../../constants/bus_zones";
 
+const { width, height } = Dimensions.get('window');
 const EditProfileScreen = ({ navigation }) => {
   const user = useSelector((state) => state.rootSlice.user);
+  console.log(user)
   const [image, setImage] = useState(null);
 
   const [name, setFullName] = useState(user.name ?? "");
@@ -35,6 +40,7 @@ const EditProfileScreen = ({ navigation }) => {
   const [vehicleNumber, setVehicleNumber] = useState(user.vehicle_number ?? "");
   const [showProfileOptionsSheet, setShowProfileOptionsSheet] = useState(false);
   const [showing,setShowing] = useState('');
+  const [showBusZone, setShowBusZone] = useState(false);
   const [status, requestPermission] = ImagePicker.useCameraPermissions();
   const [setUpdateProfile, { isLoading, data, error }] =
     useUpdateProfileMutation();
@@ -56,7 +62,7 @@ const EditProfileScreen = ({ navigation }) => {
     };
     if(user.type != "user"){
       userData.license = license;
-      userData.bus_zone = busZone;
+      userData.bus_zone = busZone.zone;
       userData.vehicle_number = vehicleNumber;
     }
     setUpdateProfile({ token, ...userData });
@@ -149,6 +155,53 @@ const EditProfileScreen = ({ navigation }) => {
       </View>
     );
   }
+  function busZoneInfo() {
+    return (
+        <View style={{ marginTop: Sizes.fixPadding + 5.0, marginHorizontal: Sizes.fixPadding * 2.0, }}>
+            <Text style={{ marginBottom: Sizes.fixPadding - 5.0, ...Fonts.grayColor14Regular }}>
+                Bus Zone
+            </Text>
+            <Menu
+                visible={showBusZone}
+                style={{ paddingTop: Sizes.fixPadding, width: width - 40.0, maxHeight: height - 100.0, }}
+                anchor={
+                    <TouchableOpacity
+                        activeOpacity={0.9}
+                        onPress={() => setShowBusZone(true)}
+                        style={styles.licenceInfoWrapStyle}
+                    >
+                        <Text style={{ ...Fonts.blackColor16Medium, }}>
+                            {busZone?.zone ?(busZone.origin.name+' -  ' + busZone.destination.name) :"Select"}
+                        </Text>
+                        <MaterialIcons
+                            name="arrow-drop-down"
+                            color={Colors.primaryColor}
+                            size={24}
+                        />
+                    </TouchableOpacity>
+                }
+                onRequestClose={() => setShowBusZone(false)}
+            >
+                <ScrollView showsVerticalScrollIndicator={false}>
+                    {
+                        bus_zones.map((item, index) => (
+                            <MenuItem
+                                key={index}
+                                textStyle={{ marginTop: Sizes.fixPadding - 20.0, ...Fonts.blackColor16Medium}}
+                                onPress={() => {
+                                    setBusZone(item)
+                                    setShowBusZone(false)
+                                }}
+                            >
+                                {item.origin.name+' -  ' + item.destination.name}
+                            </MenuItem>
+                        ))
+                    }
+                </ScrollView>
+            </Menu>
+        </View>
+    )
+}
   function profilePicOptionSheet() {
     return (
       <BottomSheet
@@ -287,26 +340,7 @@ const EditProfileScreen = ({ navigation }) => {
       </View>
     );
   }
-  function busZoneInfo() {
-    return (
-      <View style={{ marginHorizontal: Sizes.fixPadding * 2.0 }}>
-        <Text
-          style={{
-            marginBottom: Sizes.fixPadding - 5.0,
-            ...Fonts.grayColor14Regular,
-          }}
-        >
-          Bus Zone
-        </Text>
-        <TextInput
-          value={busZone}
-          onChangeText={(value) => setBusZone(value)}
-          selectionColor={Colors.primaryColor}
-          style={styles.textFieldStyle}
-        />
-      </View>
-    );
-  }
+ 
   function vehicleNumberInfo() {
     return (
       <View style={{ marginHorizontal: Sizes.fixPadding * 2.0 }}>

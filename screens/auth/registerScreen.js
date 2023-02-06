@@ -21,18 +21,13 @@ const RegisterScreen = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [setUserInfo, result] = useSignUpMutation();
   const { data, isLoading, error } = result;
-  useEffect(() => {
-      if (data) {
-        console.log('data',data)
-        navigation.navigate("Verification",{pin:data.pin,user:data.user});
-      };
-    }, [data]);
 
-    const handleRegister = () => {
+
+    const handleRegister =async () => {
         if(name && password && email && phone_number){
         if (name.length < 4) return Alert.alert('',"Name must be at least 4 characters.");
         if (password.length < 6) return Alert.alert('',"Password must be at least 6 Digit/letter");
-    let type = getData('user_type');
+    let type =await getData('user_type');
         const userData = {
           name,
           email,
@@ -46,7 +41,14 @@ const RegisterScreen = ({ navigation }) => {
         Alert.alert('',"All fields are required!")
     }
       };
+      useEffect(() => {
+        if (data) {
+          console.log('data',data)
+          navigation.navigate("Verification",{pin:data.pin,user:data.user});
+        };
+      }, [data]);
     if(error){
+        console.log(error.data)
         Alert.alert('',error.data.error)
     }
 
