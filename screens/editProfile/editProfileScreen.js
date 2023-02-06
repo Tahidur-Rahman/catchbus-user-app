@@ -36,7 +36,7 @@ const EditProfileScreen = ({ navigation }) => {
   const [email, setEmail] = useState(user.email ?? "");
   const [mobileNumber, setMobileNumber] = useState(user.phone_number ?? "");
   const [license, setLicense] = useState(user.license ?? "");
-  const [busZone, setBusZone] = useState(user.bus_zone ?? "");
+  const [busZone, setBusZone] = useState(user.bus_zone ? bus_zones[user.bus_zone] : "");
   const [vehicleNumber, setVehicleNumber] = useState(user.vehicle_number ?? "");
   const [showProfileOptionsSheet, setShowProfileOptionsSheet] = useState(false);
   const [showing,setShowing] = useState('');

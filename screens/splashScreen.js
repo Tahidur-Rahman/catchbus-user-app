@@ -6,6 +6,7 @@ import { getData } from '../utils/AsyncStorageManager';
 import { useDispatch } from 'react-redux';
 import { useGetMeQuery } from '../redux/features/api/authApi';
 import { setUser } from '../redux/features/rootSlice';
+import { getCurrentLocation } from '../utils/getCurrentLocation';
 
 const SplashScreen = ({ navigation }) => {
     const dispatch = useDispatch();
@@ -35,6 +36,8 @@ const SplashScreen = ({ navigation }) => {
         console.log('data.user',data.user)
         navigation.navigate("Home");
         dispatch(setUser(data?.user));
+            const location = await getCurrentLocation();
+            console.log(location)
       }
       if (error) {
         checkStatus()
