@@ -24,6 +24,7 @@ import { setUser } from "../../redux/features/rootSlice";
 import { removeData } from "../../utils/AsyncStorageManager";
 import { io } from "socket.io-client";
 import { getCurrentLocation } from "../../utils/getCurrentLocation";
+import * as Location from "expo-location";
 
 // const markers = [
 //   {
@@ -481,7 +482,6 @@ const NearByBusStop = ({ showMenu, navigation }) => {
     // const baseUrl = `http://${Platform.OS === "ios" ? "localhost" : "10.0.2.2"}:3000`;
     const baseUrl = "https://catchbus-backend.up.railway.app";
     socketRef.current = io(baseUrl);
-    handleCurrentLocation();
   }, []);
 
   useEffect(() => {
@@ -508,19 +508,38 @@ const NearByBusStop = ({ showMenu, navigation }) => {
     }
   }, [location]);
 
-  const handleCurrentLocation = async () => {
-    const currLocation = await getCurrentLocation();
-    currLocation && setLocation(currLocation);
-  };
-
-  // fetch current location every 4 second
   useEffect(() => {
-    const interval = setInterval(() => {
-      handleCurrentLocation();
-    }, 4000);
-    return () => clearInterval(interval);
+    (async () => {
+      let { status } = await Location.requestPermissionsAsync();
+      if (status !== "granted") {
+        return console.log("Permission denied");
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      setLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+
+      const watchId = Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeInterval: 2000,
+        },
+        (loc) => {
+          setLocation({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          });
+        }
+      );
+
+      return () => Location.clearWatchAsync(watchId);
+    })();
   }, []);
-  
+
+  console.log("TTTTTTTTTTTTTT", location);
+
   const region = {
     latitude: location?.latitude,
     longitude: location?.longitude,
