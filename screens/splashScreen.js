@@ -33,11 +33,11 @@ const SplashScreen = ({ navigation }) => {
           .then((value) => navigation.navigate(value?"Login":"Onboarding"))
           .catch((e) => navigation.navigate("Onboarding"));
       if (data?.user) {
-        console.log('data.user',data.user)
+        // console.log('data.user',data.user)
         navigation.navigate("Home");
         dispatch(setUser(data?.user));
             const location = await getCurrentLocation();
-            console.log(location)
+            // console.log(location)
       }
       if (error) {
         checkStatus()
