@@ -489,8 +489,10 @@ const NearByBusStop = ({ showMenu, navigation }) => {
 
   // connect socket client
   useEffect(() => {
-    // const baseUrl = `http://${Platform.OS === "ios" ? "localhost" : "10.0.2.2"}:3000`;
-    const baseUrl = "https://catchbus-backend.up.railway.app";
+    const baseUrl = `http://${
+      Platform.OS === "ios" ? "localhost" : "10.0.2.2"
+    }:3000`;
+    // const baseUrl = "https://catchbus-backend.up.railway.app";
     socketRef.current = io(baseUrl);
   }, []);
 
@@ -521,11 +523,20 @@ const NearByBusStop = ({ showMenu, navigation }) => {
         socketRef?.current.emit("addDriver", driverData);
       }
       socketRef?.current.on("getDrivers", (driversInfo) => {
-        // console.log("socket drivers...", driversInfo);
+        console.log("socket drivers...", driversInfo);
         setMarkerList(driversInfo);
       });
     }
   }, [location, currLocation, desLocation]);
+
+  useEffect(() => {
+    if (currLocation && userInfo.type === "user") {
+      socketRef.current.emit("addUserLocation", currLocation);
+      socketRef.current.on("getNearbyDrivers", (nearbyDrivers) => {
+        console.log("nearbyDrivers", nearbyDrivers);
+      });
+    }
+  }, [currLocation]);
 
   useEffect(() => {
     (async () => {
