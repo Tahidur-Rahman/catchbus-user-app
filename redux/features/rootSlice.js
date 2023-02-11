@@ -1,23 +1,25 @@
-import { createSlice } from '@reduxjs/toolkit'
-import { setData } from '../../utils/AsyncStorageManager'
+import { createSlice } from "@reduxjs/toolkit";
+import { setData } from "../../utils/AsyncStorageManager";
 
 const initialData = {
-    user: {},
+  user: {},
+  location: {},
 };
 
 export const rootSlice = createSlice({
-    name: 'appStore',
-    initialState: initialData,
-    reducers: {
-        setUser: (state, action) => {
-            state.user = action.payload
-            setData("user", action.payload)
-        },
+  name: "appStore",
+  initialState: initialData,
+  reducers: {
+    setUser: (state, action) => {
+      state.user = action.payload;
+      setData("user", action.payload);
     },
-})
+    setLocation: (state, { payload }) => {
+      state.location = { ...state.location, ...payload };
+    },
+  },
+});
 
-export const { 
-    setUser, 
-} = rootSlice.actions
+export const { setUser, setLocation } = rootSlice.actions;
 
 export default rootSlice.reducer;
