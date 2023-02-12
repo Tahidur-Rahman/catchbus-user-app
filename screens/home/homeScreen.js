@@ -16,7 +16,11 @@ import {
 } from "react-native";
 import { Colors, Fonts, Sizes } from "../../constants/styles";
 import { MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
-import MapView, { PROVIDER_GOOGLE, Marker } from "react-native-maps";
+import MapView, {
+  PROVIDER_GOOGLE,
+  Marker,
+  AnimatedRegion,
+} from "react-native-maps";
 import { Dialog } from "@rneui/themed";
 import { useFocusEffect } from "@react-navigation/native";
 import { useDispatch, useSelector } from "react-redux";
@@ -24,6 +28,9 @@ import { setUser } from "../../redux/features/rootSlice";
 import { removeData } from "../../utils/AsyncStorageManager";
 import { io } from "socket.io-client";
 import { getCurrentLocation } from "../../utils/getCurrentLocation";
+import * as Location from "expo-location";
+import Key from "../../constants/key";
+import MapViewDirections from "react-native-maps-directions";
 
 // const markers = [
 //   {
@@ -80,7 +87,7 @@ import { getCurrentLocation } from "../../utils/getCurrentLocation";
 
 const { width } = Dimensions.get("screen");
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = ({ navigation, route }) => {
   const { user } = useSelector((state) => state.rootSlice);
   const dispatch = useDispatch();
   const backAction = () => {
@@ -471,25 +478,37 @@ const HomeScreen = ({ navigation }) => {
 const cardWidth = width / 1.5;
 
 const NearByBusStop = ({ showMenu, navigation }) => {
+  const { currLocation, desLocation } = useSelector(
+    (state) => state.rootSlice.location
+  );
   const socketRef = useRef();
-  const [location, setLocation] = useState({});
+  const [location, setLocation] = useState(currLocation ?? {});
   const userInfo = useSelector((state) => state.rootSlice?.user);
   const [markerList, setMarkerList] = useState([]);
+  const markerRef = useRef();
 
   // connect socket client
   useEffect(() => {
-    // const baseUrl = `http://${Platform.OS === "ios" ? "localhost" : "10.0.2.2"}:3000`;
-    const baseUrl = "https://catchbus-backend.up.railway.app";
+    const baseUrl = `http://${
+      Platform.OS === "ios" ? "localhost" : "10.0.2.2"
+    }:3000`;
+    // const baseUrl = "https://catchbus-backend.up.railway.app";
     socketRef.current = io(baseUrl);
-    handleCurrentLocation();
   }, []);
 
   useEffect(() => {
-    if (location?.latitude && userInfo?.type === "driver") {
+    if (currLocation) setLocation(currLocation);
+    if (location?.latitude) {
       const driverData = {
         coordinate: {
           latitude: location?.latitude,
           longitude: location?.longitude,
+        },
+
+        destination: {
+          // for test
+          latitude: desLocation?.latitude,
+          longitude: desLocation?.longitude,
         },
         stationName: "test",
         stationImage: require("../../assets/images/busStations/station1.png"),
@@ -500,27 +519,57 @@ const NearByBusStop = ({ showMenu, navigation }) => {
         email: userInfo?.email,
         phone: userInfo?.phone_number,
       };
-      socketRef?.current.emit("addDriver", driverData);
+      if (userInfo.type === "driver") {
+        socketRef?.current.emit("addDriver", driverData);
+      }
       socketRef?.current.on("getDrivers", (driversInfo) => {
         console.log("socket drivers...", driversInfo);
         setMarkerList(driversInfo);
       });
     }
-  }, [location]);
+  }, [location, currLocation, desLocation]);
 
-  const handleCurrentLocation = async () => {
-    const currLocation = await getCurrentLocation();
-    currLocation && setLocation(currLocation);
-  };
-
-  // fetch current location every 4 second
   useEffect(() => {
-    const interval = setInterval(() => {
-      handleCurrentLocation();
-    }, 4000);
-    return () => clearInterval(interval);
+    if (currLocation && userInfo.type === "user") {
+      socketRef.current.emit("addUserLocation", currLocation);
+      socketRef.current.on("getNearbyDrivers", (nearbyDrivers) => {
+        console.log("nearbyDrivers", nearbyDrivers);
+      });
+    }
+  }, [currLocation]);
+
+  useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        return console.log("Permission denied");
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      !currLocation &&
+        setLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+
+      const watchId = Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeInterval: 4000,
+        },
+        (loc) => {
+          !currLocation &&
+            setLocation({
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            });
+        }
+      );
+
+      return () => Location.clearWatchAsync(watchId);
+    })();
   }, []);
-  
+
   const region = {
     latitude: location?.latitude,
     longitude: location?.longitude,
@@ -577,6 +626,19 @@ const NearByBusStop = ({ showMenu, navigation }) => {
   });
 
   const _map = React.useRef(null);
+  const markerAnimated = (coordinate) => {
+    const newCoords = {
+      latitude: coordinate?.latitude,
+      longitude: coordinate?.longitude,
+    };
+    if (!Platform.OS === "android") {
+      if (markerRef.current) {
+        markerRef.current.animateMarkerToCoordinate(newCoords, 4000);
+      }
+    } else {
+      // coordinate.timing(newCoords).start();
+    }
+  };
 
   return (
     <View
@@ -586,27 +648,29 @@ const NearByBusStop = ({ showMenu, navigation }) => {
         overflow: "hidden",
       }}
     >
-      {markerList && (
-        <MapView
-          ref={_map}
-          region={region}
-          style={{
-            height: "100%",
-            borderBottomLeftRadius: showMenu ? Sizes.fixPadding + 5.0 : 0.0,
-          }}
-          provider={PROVIDER_GOOGLE}
-          mapType="terrain"
-        >
-          {markerList?.map((marker, index) => {
-            const scaleStyle = {
-              transform: [
-                {
-                  scale: interpolation[index].scale,
-                },
-              ],
-            };
-            return (
-              <Marker key={index} coordinate={marker.coordinate}>
+      <MapView
+        ref={_map}
+        region={region}
+        style={{
+          height: "100%",
+          borderBottomLeftRadius: showMenu ? Sizes.fixPadding + 5.0 : 0.0,
+        }}
+        provider={PROVIDER_GOOGLE}
+        mapType="terrain"
+      >
+        {markerList?.map((marker, index) => {
+          const scaleStyle = {
+            transform: [
+              {
+                scale: interpolation[index].scale,
+              },
+            ],
+          };
+          markerAnimated(marker?.coordinate);
+          const coords = new AnimatedRegion(marker.coordinate);
+          return (
+            <>
+              <Marker.Animated key={index} ref={markerRef} coordinate={coords}>
                 <Animated.View
                   style={{
                     alignItems: "center",
@@ -621,11 +685,24 @@ const NearByBusStop = ({ showMenu, navigation }) => {
                     style={[styles.markerStyle, scaleStyle]}
                   ></Animated.Image>
                 </Animated.View>
-              </Marker>
-            );
-          })}
-        </MapView>
-      )}
+              </Marker.Animated>
+
+              <MapViewDirections
+                origin={marker?.coordinate}
+                destination={marker?.destination}
+                apikey={Key.apiKey}
+                strokeWidth={3}
+                strokeColor="hotpink"
+                optimizeWaypoints={true}
+                onReady={(result) => {
+                  _map.current.fitToCoordinates(result.coordinates, {});
+                }}
+              />
+            </>
+          );
+        })}
+      </MapView>
+
       <Animated.ScrollView
         horizontal={true}
         scrollEventThrottle={1}
