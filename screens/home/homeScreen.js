@@ -15,11 +15,12 @@ import {
   Platform,
 } from "react-native";
 import { Colors, Fonts, Sizes } from "../../constants/styles";
-import { MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
+import { MaterialIcons, FontAwesome5, Entypo } from "@expo/vector-icons";
 import MapView, {
   PROVIDER_GOOGLE,
   Marker,
   AnimatedRegion,
+  MarkerAnimated,
 } from "react-native-maps";
 import { Dialog } from "@rneui/themed";
 import { useFocusEffect } from "@react-navigation/native";
@@ -426,6 +427,7 @@ const HomeScreen = ({ navigation, route }) => {
         >
           Tap to add destination
         </Text>
+        <FontAwesome5 name="sliders-h" size={24} color={Colors.primaryColor} />
       </TouchableOpacity>
     );
   }
@@ -478,26 +480,25 @@ const HomeScreen = ({ navigation, route }) => {
 const cardWidth = width / 1.5;
 
 const NearByBusStop = ({ showMenu, navigation }) => {
-  const { currLocation, desLocation } = useSelector(
-    (state) => state.rootSlice.location
-  );
+  const { desLocation } = useSelector((state) => state.rootSlice.location);
   const socketRef = useRef();
-  const [location, setLocation] = useState(currLocation ?? {});
+  const [location, setLocation] = useState({});
   const userInfo = useSelector((state) => state.rootSlice?.user);
   const [markerList, setMarkerList] = useState([]);
+  const _map = React.useRef(null);
   const markerRef = useRef();
 
   // connect socket client
   useEffect(() => {
-    const baseUrl = `http://${
-      Platform.OS === "ios" ? "localhost" : "10.0.2.2"
-    }:3000`;
-    // const baseUrl = "https://catchbus-backend.up.railway.app";
+    handleCurrentLocation();
+    // const baseUrl = `http://${
+    //   Platform.OS === "ios" ? "localhost" : "10.0.0.2"
+    // }:3000`;
+    const baseUrl = "https://catchbus-backend.up.railway.app";
     socketRef.current = io(baseUrl);
   }, []);
 
   useEffect(() => {
-    if (currLocation) setLocation(currLocation);
     if (location?.latitude) {
       const driverData = {
         coordinate: {
@@ -519,7 +520,7 @@ const NearByBusStop = ({ showMenu, navigation }) => {
         email: userInfo?.email,
         phone: userInfo?.phone_number,
       };
-      if (userInfo.type === "driver") {
+      if (userInfo?.type === "driver") {
         socketRef?.current.emit("addDriver", driverData);
       }
       socketRef?.current.on("getDrivers", (driversInfo) => {
@@ -527,54 +528,35 @@ const NearByBusStop = ({ showMenu, navigation }) => {
         setMarkerList(driversInfo);
       });
     }
-  }, [location, currLocation, desLocation]);
+  }, [location, desLocation]);
+  // }, []);
 
   useEffect(() => {
-    if (currLocation && userInfo.type === "user") {
-      socketRef.current.emit("addUserLocation", currLocation);
+    if (userInfo?.type === "user") {
+      socketRef.current.emit("addUserLocation", location);
       socketRef.current.on("getNearbyDrivers", (nearbyDrivers) => {
         console.log("nearbyDrivers", nearbyDrivers);
       });
     }
-  }, [currLocation]);
+  }, []);
+
+  const handleCurrentLocation = async () => {
+    const loc = await getCurrentLocation();
+    setLocation({ latitude: loc?.latitude, longitude: loc?.longitude });
+  };
 
   useEffect(() => {
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        return console.log("Permission denied");
-      }
-
-      let location = await Location.getCurrentPositionAsync({});
-      !currLocation &&
-        setLocation({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
-
-      const watchId = Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 4000,
-        },
-        (loc) => {
-          !currLocation &&
-            setLocation({
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-            });
-        }
-      );
-
-      return () => Location.clearWatchAsync(watchId);
-    })();
+    const interval = setInterval(() => {
+      handleCurrentLocation();
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const region = {
     latitude: location?.latitude,
     longitude: location?.longitude,
-    latitudeDelta: 0.035,
-    longitudeDelta: 0.035,
+    latitudeDelta: 0.055,
+    longitudeDelta: 0.055,
   };
 
   let mapAnimation = new Animated.Value(0);
@@ -625,7 +607,6 @@ const NearByBusStop = ({ showMenu, navigation }) => {
     return { scale };
   });
 
-  const _map = React.useRef(null);
   const markerAnimated = (coordinate) => {
     const newCoords = {
       latitude: coordinate?.latitude,
@@ -639,6 +620,12 @@ const NearByBusStop = ({ showMenu, navigation }) => {
       // coordinate.timing(newCoords).start();
     }
   };
+
+  // const handleCenterLocation = () => {
+  //   if (_map.current) {
+  //     _map.current.animateToRegion(region, 0);
+  //   }
+  // };
 
   return (
     <View
@@ -670,7 +657,7 @@ const NearByBusStop = ({ showMenu, navigation }) => {
           const coords = new AnimatedRegion(marker.coordinate);
           return (
             <>
-              <Marker.Animated key={index} ref={markerRef} coordinate={coords}>
+              <MarkerAnimated key={index} ref={markerRef} coordinate={coords}>
                 <Animated.View
                   style={{
                     alignItems: "center",
@@ -685,7 +672,7 @@ const NearByBusStop = ({ showMenu, navigation }) => {
                     style={[styles.markerStyle, scaleStyle]}
                   ></Animated.Image>
                 </Animated.View>
-              </Marker.Animated>
+              </MarkerAnimated>
 
               <MapViewDirections
                 origin={marker?.coordinate}
@@ -701,7 +688,51 @@ const NearByBusStop = ({ showMenu, navigation }) => {
             </>
           );
         })}
+
+        {userInfo?.type === "user" && (
+          <>
+            <MapViewDirections
+              origin={location}
+              destination={desLocation}
+              apikey={Key.apiKey}
+              strokeWidth={3}
+              strokeColor="hotpink"
+              optimizeWaypoints={true}
+              // onReady={(result) => {
+              //   _map.current.fitToCoordinates(result.coordinates, {});
+              // }}
+            />
+            <Marker
+              key={0}
+              // ref={userMarkerRef}
+              coordinate={location}
+            >
+              <View>
+                <FontAwesome5
+                  name="user-alt"
+                  size={30}
+                  color={Colors.primaryColor}
+                />
+              </View>
+            </Marker>
+          </>
+        )}
       </MapView>
+
+      {/* center icon  */}
+      {/* <TouchableOpacity
+        onPress={() => handleCenterLocation()}
+        style={{
+          position: "absolute",
+          right: 10,
+          top: 10,
+          backgroundColor: "#ffffff",
+          borderRadius: 50,
+          padding: 6,
+        }}
+      >
+        <Entypo name="direction" size={25} color="red" />
+      </TouchableOpacity> */}
 
       <Animated.ScrollView
         horizontal={true}
