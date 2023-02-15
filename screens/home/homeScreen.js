@@ -427,7 +427,7 @@ const HomeScreen = ({ navigation, route }) => {
         >
           Tap to add destination
         </Text>
-        <FontAwesome5 name="sliders-h" size={24} color={Colors.primaryColor} />
+        <FontAwesome5 name="sliders-h" size={20} color={Colors.primaryColor} />
       </TouchableOpacity>
     );
   }
@@ -492,10 +492,13 @@ const NearByBusStop = ({ showMenu, navigation }) => {
   useEffect(() => {
     handleCurrentLocation();
     // const baseUrl = `http://${
-    //   Platform.OS === "ios" ? "localhost" : "10.0.0.2"
+    //   Platform.OS === "ios" ? "localhost" : "10.0.2.2"
     // }:3000`;
     const baseUrl = "https://catchbus-backend.up.railway.app";
-    socketRef.current = io(baseUrl);
+    socketRef.current = io(baseUrl, {
+      upgrade: false,
+      transports: ["websocket"],
+    });
   }, []);
 
   useEffect(() => {
@@ -504,15 +507,19 @@ const NearByBusStop = ({ showMenu, navigation }) => {
         coordinate: {
           latitude: location?.latitude,
           longitude: location?.longitude,
+          latitudeDelta: 0.035,
+          longitudeDelta: 0.035,
         },
 
         destination: {
           // for test
           latitude: desLocation?.latitude,
           longitude: desLocation?.longitude,
+          latitudeDelta: 0.035,
+          longitudeDelta: 0.035,
         },
         stationName: "test",
-        stationImage: require("../../assets/images/busStations/station1.png"),
+        // stationImage: require("../../assets/images/busStations/station1.png"),
         distance: "1 km",
         time: "5min",
         id: userInfo?._id,
@@ -548,15 +555,15 @@ const NearByBusStop = ({ showMenu, navigation }) => {
   useEffect(() => {
     const interval = setInterval(() => {
       handleCurrentLocation();
-    }, 5000);
+    }, 1500);
     return () => clearInterval(interval);
   }, []);
 
   const region = {
     latitude: location?.latitude,
     longitude: location?.longitude,
-    latitudeDelta: 0.055,
-    longitudeDelta: 0.055,
+    latitudeDelta: 0.035,
+    longitudeDelta: 0.035,
   };
 
   let mapAnimation = new Animated.Value(0);
@@ -608,13 +615,9 @@ const NearByBusStop = ({ showMenu, navigation }) => {
   });
 
   const markerAnimated = (coordinate) => {
-    const newCoords = {
-      latitude: coordinate?.latitude,
-      longitude: coordinate?.longitude,
-    };
-    if (!Platform.OS === "android") {
+    if (Platform.OS === "android") {
       if (markerRef.current) {
-        markerRef.current.animateMarkerToCoordinate(newCoords, 4000);
+        markerRef.current.animateMarkerToCoordinate(coordinate, 15000);
       }
     } else {
       // coordinate.timing(newCoords).start();
@@ -653,11 +656,16 @@ const NearByBusStop = ({ showMenu, navigation }) => {
               },
             ],
           };
-          markerAnimated(marker?.coordinate);
-          const coords = new AnimatedRegion(marker.coordinate);
+          // markerAnimated(marker?.coordinate);
+          const coords = new AnimatedRegion(marker?.coordinate);
           return (
             <>
-              <MarkerAnimated key={index} ref={markerRef} coordinate={coords}>
+              <Marker.Animated
+                key={index}
+                ref={markerRef}
+                coordinate={coords}
+                title={marker.name}
+              >
                 <Animated.View
                   style={{
                     alignItems: "center",
@@ -672,7 +680,7 @@ const NearByBusStop = ({ showMenu, navigation }) => {
                     style={[styles.markerStyle, scaleStyle]}
                   ></Animated.Image>
                 </Animated.View>
-              </MarkerAnimated>
+              </Marker.Animated>
 
               <MapViewDirections
                 origin={marker?.coordinate}
