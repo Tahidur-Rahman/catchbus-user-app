@@ -4,6 +4,7 @@ import { setData } from "../../utils/AsyncStorageManager";
 const initialData = {
   user: {},
   location: {},
+  filterData: {},
 };
 
 export const rootSlice = createSlice({
@@ -17,9 +18,12 @@ export const rootSlice = createSlice({
     setLocation: (state, { payload }) => {
       state.location = { ...state.location, ...payload };
     },
+    setFilterData: (state, { payload }) => {
+      state.filterData = payload;
+    },
   },
 });
 
-export const { setUser, setLocation } = rootSlice.actions;
+export const { setUser, setLocation, setFilterData } = rootSlice.actions;
 
 export default rootSlice.reducer;

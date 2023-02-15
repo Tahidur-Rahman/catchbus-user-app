@@ -13,6 +13,10 @@ import {
   View,
   ScrollView,
   Platform,
+  Pressable,
+  Modal,
+  TextInput,
+  Alert,
 } from "react-native";
 import { Colors, Fonts, Sizes } from "../../constants/styles";
 import { MaterialIcons, FontAwesome5, Entypo } from "@expo/vector-icons";
@@ -25,13 +29,19 @@ import MapView, {
 import { Dialog } from "@rneui/themed";
 import { useFocusEffect } from "@react-navigation/native";
 import { useDispatch, useSelector } from "react-redux";
-import { setUser } from "../../redux/features/rootSlice";
+import {
+  setFilterData,
+  setLocation,
+  setUser,
+} from "../../redux/features/rootSlice";
 import { removeData } from "../../utils/AsyncStorageManager";
 import { io } from "socket.io-client";
 import { getCurrentLocation } from "../../utils/getCurrentLocation";
 import * as Location from "expo-location";
 import Key from "../../constants/key";
 import MapViewDirections from "react-native-maps-directions";
+import { Menu, MenuItem } from "react-native-material-menu";
+import bus_zones from "../../constants/bus_zones";
 
 // const markers = [
 //   {
@@ -408,6 +418,11 @@ const HomeScreen = ({ navigation, route }) => {
   }
 
   function addDestinationInfo() {
+    const [busZone, setBusZone] = useState({});
+    const [showFilterModal, setShowFilterModal] = useState(false);
+    const [filterValue, setFilterValue] = useState("");
+    const dispatch = useDispatch();
+
     return (
       <TouchableOpacity
         activeOpacity={0.9}
@@ -427,7 +442,100 @@ const HomeScreen = ({ navigation, route }) => {
         >
           Tap to add destination
         </Text>
-        <FontAwesome5 name="sliders-h" size={20} color={Colors.primaryColor} />
+        <Pressable onPress={() => setShowFilterModal(true)}>
+          <FontAwesome5
+            name="sliders-h"
+            size={20}
+            color={Colors.primaryColor}
+          />
+        </Pressable>
+
+        {/* show filter modal  */}
+        <Menu
+          visible={showFilterModal}
+          style={{
+            paddingTop: Sizes.fixPadding,
+            marginLeft: 30,
+            width: Dimensions.get("window").width,
+            height: Dimensions.get("window").height - 250,
+            borderRadius: 30,
+            flex: 1,
+          }}
+          onRequestClose={() => setShowFilterModal(false)}
+        >
+          {/* input field  */}
+          <TextInput
+            placeholder="Filter by bus zone / bus number"
+            value={filterValue}
+            onChangeText={setFilterValue}
+            style={styles.addDestinationInfoWrapStyle}
+          />
+          {/* button  */}
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => {
+              dispatch(setFilterData({ data: filterValue }));
+              setFilterValue("");
+              setShowFilterModal(false);
+            }}
+            style={styles.buttonStyle}
+          >
+            <Text style={{ ...Fonts.whiteColor20SemiBold }}>Filter</Text>
+          </TouchableOpacity>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            style={{
+              marginLeft: 6,
+              marginBottom: 20,
+            }}
+          >
+            {bus_zones.map((item, index) => (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingVertical: Sizes.fixPadding - 50.0,
+                }}
+              >
+                <MenuItem
+                  key={index}
+                  textStyle={{
+                    // marginTop: Sizes.fixPadding - 20.0,
+                    ...Fonts.blackColor16Medium,
+                    // textAlign: "center"
+                  }}
+                  onPress={() => {
+                    setBusZone(item);
+                    dispatch(
+                      setLocation({
+                        desLocation: {
+                          latitude: item.destination.location.lat,
+                          longitude: item.destination.location.lng,
+                        },
+                        currLocation: {
+                          latitude: item.origin.location.lat,
+                          longitude: item.origin.location.lng,
+                        },
+                      })
+                    );
+                    setShowFilterModal(false);
+                  }}
+                >
+                  {item.origin.name + " -  " + item.destination.name}
+                </MenuItem>
+
+                {busZone == item && (
+                  <FontAwesome5
+                    name="check-circle"
+                    size={20}
+                    color={Colors.primaryColor}
+                  />
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        </Menu>
       </TouchableOpacity>
     );
   }
@@ -480,16 +588,19 @@ const HomeScreen = ({ navigation, route }) => {
 const cardWidth = width / 1.5;
 
 const NearByBusStop = ({ showMenu, navigation }) => {
-  const { desLocation } = useSelector((state) => state.rootSlice.location);
+  const { location: loc, filterData } = useSelector((state) => state.rootSlice);
+  const { currLocation, desLocation } = loc;
   const socketRef = useRef();
   const [location, setLocation] = useState({});
   const userInfo = useSelector((state) => state.rootSlice?.user);
   const [markerList, setMarkerList] = useState([]);
   const _map = React.useRef(null);
   const markerRef = useRef();
+  const dispatch = useDispatch();
 
   // connect socket client
   useEffect(() => {
+    handleFetchFilterData();
     handleCurrentLocation();
     // const baseUrl = `http://${
     //   Platform.OS === "ios" ? "localhost" : "10.0.2.2"
@@ -502,6 +613,8 @@ const NearByBusStop = ({ showMenu, navigation }) => {
   }, []);
 
   useEffect(() => {
+    setLocation(currLocation);
+
     if (location?.latitude) {
       const driverData = {
         coordinate: {
@@ -522,21 +635,25 @@ const NearByBusStop = ({ showMenu, navigation }) => {
         // stationImage: require("../../assets/images/busStations/station1.png"),
         distance: "1 km",
         time: "5min",
-        id: userInfo?._id,
-        name: userInfo?.name,
-        email: userInfo?.email,
-        phone: userInfo?.phone_number,
+        id: userInfo._id,
+        name: userInfo.name,
+        email: userInfo.email,
+        phone: userInfo.phone_number,
+        photo: userInfo.photo,
+        vehicle_number: userInfo.vehicle_number,
+        bus_zone: userInfo.bus_zone,
       };
       if (userInfo?.type === "driver") {
         socketRef?.current.emit("addDriver", driverData);
       }
-      socketRef?.current.on("getDrivers", (driversInfo) => {
-        console.log("socket drivers...", driversInfo);
-        setMarkerList(driversInfo);
-      });
+      if (!filterData?.data) {
+        socketRef?.current.on("getDrivers", (driversInfo) => {
+          // console.log("socket drivers...", driversInfo);=======================>>
+          setMarkerList(driversInfo);
+        });
+      }
     }
-  }, [location, desLocation]);
-  // }, []);
+  }, [location, currLocation, desLocation]);
 
   useEffect(() => {
     if (userInfo?.type === "user") {
@@ -551,13 +668,28 @@ const NearByBusStop = ({ showMenu, navigation }) => {
     const loc = await getCurrentLocation();
     setLocation({ latitude: loc?.latitude, longitude: loc?.longitude });
   };
+  const handleFetchFilterData = async () => {
+    if (filterData) socketRef?.current.emit("addFilterInfo", filterData.data);
+    socketRef?.current.on("getFilterInfo", (filterInfo) => {
+      // console.log("filter info", filterInfo); ====================================>>>
+
+      if (filterInfo?.length !== 0) {
+        setMarkerList(filterInfo);
+        // Alert.alert("Success", "Filter result funded for bus number", filterInfo.vehicle_number);
+      } else {
+        dispatch(setFilterData({}));
+        Alert.alert("Error", "Nothing is found");
+      }
+    });
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
+      filterData?.data && handleFetchFilterData();
       handleCurrentLocation();
     }, 1500);
     return () => clearInterval(interval);
-  }, []);
+  }, [filterData]);
 
   const region = {
     latitude: location?.latitude,
@@ -928,6 +1060,16 @@ const styles = StyleSheet.create({
     marginHorizontal: Sizes.fixPadding * 2.0,
     flexDirection: "row",
     alignItems: "center",
+  },
+  buttonStyle: {
+    backgroundColor: Colors.primaryColor,
+    borderRadius: Sizes.fixPadding - 4.0,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Sizes.fixPadding - 5.0,
+    margin: Sizes.fixPadding * 2.0,
+    elevation: 1.5,
+    shadowColor: Colors.primaryColor,
   },
 });
 
