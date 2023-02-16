@@ -1,4 +1,4 @@
-import { Text, StyleSheet, Image, ScrollView, View, SafeAreaView, TextInput, StatusBar, TouchableOpacity, Alert } from 'react-native'
+import { Text, StyleSheet, Image, ScrollView, View, SafeAreaView, TextInput, StatusBar, TouchableOpacity, Alert, Dimensions } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { Colors, Fonts, Sizes, } from '../../constants/styles';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -6,6 +6,8 @@ import { useDispatch } from 'react-redux';
 import { useSignUpMutation } from '../../redux/features/api/authApi';
 import { getData, setData } from '../../utils/AsyncStorageManager';
 import Loading from '../../components/Loading';
+import { Menu, MenuItem } from 'react-native-material-menu';
+const { width, height } = Dimensions.get('window');
 
 const RegisterScreen = ({ navigation }) => {
 
@@ -16,6 +18,8 @@ const RegisterScreen = ({ navigation }) => {
     
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [country, setCountry] = useState('');
+  const [showCountrySheet, setShowCountrySheet] = useState(false);
   const [phone_number, setPhone_number] = useState('');
   const [agreeWithTerm, setAgreeWithTerm] = useState(true);
   const [password, setPassword] = useState('');
@@ -24,7 +28,7 @@ const RegisterScreen = ({ navigation }) => {
 
 
     const handleRegister =async () => {
-        if(name && password && email && phone_number){
+        if(name && password && email && phone_number && country){
         if (name.length < 4) return Alert.alert('',"Name must be at least 4 characters.");
         if (password.length < 6) return Alert.alert('',"Password must be at least 6 Digit/letter");
     let type =await getData('user_type');
@@ -33,7 +37,7 @@ const RegisterScreen = ({ navigation }) => {
           email,
           phone_number,
           type,
-          password,
+          password,country,
           authType: "Email"
         }
         setUserInfo(userData);
@@ -62,6 +66,7 @@ const RegisterScreen = ({ navigation }) => {
                 {header()}
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Sizes.fixPadding * 2.0, }}>
                     {nameInfo()}
+                    {countryInfo()}
                     {emailInfo()}
                     {phone_numberInfo()}
                     {passwordInfo()}
@@ -193,7 +198,53 @@ const RegisterScreen = ({ navigation }) => {
             </View>
         )
     }
-
+    function countryInfo() {
+        return (
+            <View style={{ marginTop: Sizes.fixPadding + 5.0, marginHorizontal: Sizes.fixPadding * 2.0, }}>
+                <Text style={{ marginBottom: Sizes.fixPadding - 5.0, ...Fonts.grayColor14Regular }}>
+                   Country
+                </Text>
+                <Menu
+                    visible={showCountrySheet}
+                    style={{ paddingTop: Sizes.fixPadding, width: width - 40.0, maxHeight: height - 100.0, }}
+                    anchor={
+                        <TouchableOpacity
+                            activeOpacity={0.9}
+                            onPress={() => setShowCountrySheet(true)}
+                            style={styles.licenceInfoWrapStyle}
+                        >
+                            <Text style={{ ...Fonts.blackColor16Medium, }}>
+                                {country ?? "Select"}
+                            </Text>
+                            <MaterialIcons
+                                name="arrow-drop-down"
+                                color={Colors.primaryColor}
+                                size={24}
+                            />
+                        </TouchableOpacity>
+                    }
+                    onRequestClose={() => setShowCountrySheet(false)}
+                >
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                        {
+                            ["Grenada","Other"].map((item, index) => (
+                                <MenuItem
+                                    key={index}
+                                    textStyle={{ marginTop: Sizes.fixPadding - 20.0, ...Fonts.blackColor16Medium}}
+                                    onPress={() => {
+                                        setCountry(item)
+                                        setShowCountrySheet(false)
+                                    }}
+                                >
+                                    {item}
+                                </MenuItem>
+                            ))
+                        }
+                    </ScrollView>
+                </Menu>
+            </View>
+        )
+    }
     function phone_numberInfo() {
         return (
             <View style={{ marginHorizontal: Sizes.fixPadding * 2.0, }}>
@@ -330,7 +381,15 @@ const styles = StyleSheet.create({
         marginTop: Sizes.fixPadding - 5.0,
         flexDirection: 'row',
         alignItems: 'center',
-    }
+    },
+    licenceInfoWrapStyle: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        backgroundColor: "rgba(111, 111, 111, 0.05)",
+        borderRadius: Sizes.fixPadding - 5.0,
+        padding: Sizes.fixPadding + 2.0,
+      },
 })
 
 export default RegisterScreen;

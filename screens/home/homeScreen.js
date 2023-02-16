@@ -635,13 +635,13 @@ const NearByBusStop = ({ showMenu, navigation }) => {
         // stationImage: require("../../assets/images/busStations/station1.png"),
         distance: "1 km",
         time: "5min",
-        id: userInfo._id,
-        name: userInfo.name,
-        email: userInfo.email,
-        phone: userInfo.phone_number,
-        photo: userInfo.photo,
-        vehicle_number: userInfo.vehicle_number,
-        bus_zone: userInfo.bus_zone,
+        id: userInfo?._id,
+        name: userInfo?.name,
+        email: userInfo?.email,
+        phone: userInfo?.phone_number,
+        photo: userInfo?.photo,
+        vehicle_number: userInfo?.vehicle_number,
+        bus_zone: userInfo?.bus_zone,
       };
       if (userInfo?.type === "driver") {
         socketRef?.current.emit("addDriver", driverData);
