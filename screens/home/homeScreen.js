@@ -497,6 +497,7 @@ const HomeScreen = ({ navigation, route }) => {
                   alignItems: "center",
                   paddingVertical: Sizes.fixPadding - 50.0,
                 }}
+                key={index}
               >
                 <MenuItem
                   key={index}
@@ -613,23 +614,23 @@ const NearByBusStop = ({ showMenu, navigation }) => {
   }, []);
 
   useEffect(() => {
-    setLocation(currLocation);
+    currLocation && setLocation(currLocation);
 
-    if (location?.latitude) {
+    if (location?.latitude && userInfo?._id) {
       const driverData = {
         coordinate: {
           latitude: location?.latitude,
           longitude: location?.longitude,
-          latitudeDelta: 0.035,
-          longitudeDelta: 0.035,
+          // latitudeDelta: 0.035,
+          // longitudeDelta: 0.035,
         },
 
         destination: {
           // for test
           latitude: desLocation?.latitude,
           longitude: desLocation?.longitude,
-          latitudeDelta: 0.035,
-          longitudeDelta: 0.035,
+          // latitudeDelta: 0.035,
+          // longitudeDelta: 0.035,
         },
         stationName: "test",
         // stationImage: require("../../assets/images/busStations/station1.png"),
@@ -644,10 +645,10 @@ const NearByBusStop = ({ showMenu, navigation }) => {
         bus_zone: userInfo?.bus_zone,
       };
       if (userInfo?.type === "driver") {
-        socketRef?.current.emit("addDriver", driverData);
+        socketRef?.current?.emit("addDriver", driverData);
       }
       if (!filterData?.data) {
-        socketRef?.current.on("getDrivers", (driversInfo) => {
+        socketRef?.current?.on("getDrivers", (driversInfo) => {
           // console.log("socket drivers...", driversInfo);=======================>>
           setMarkerList(driversInfo);
         });
@@ -657,8 +658,8 @@ const NearByBusStop = ({ showMenu, navigation }) => {
 
   useEffect(() => {
     if (userInfo?.type === "user") {
-      socketRef.current.emit("addUserLocation", location);
-      socketRef.current.on("getNearbyDrivers", (nearbyDrivers) => {
+      socketRef?.current?.emit("addUserLocation", location);
+      socketRef?.current?.on("getNearbyDrivers", (nearbyDrivers) => {
         console.log("nearbyDrivers", nearbyDrivers);
       });
     }
@@ -669,8 +670,8 @@ const NearByBusStop = ({ showMenu, navigation }) => {
     setLocation({ latitude: loc?.latitude, longitude: loc?.longitude });
   };
   const handleFetchFilterData = async () => {
-    if (filterData) socketRef?.current.emit("addFilterInfo", filterData.data);
-    socketRef?.current.on("getFilterInfo", (filterInfo) => {
+    if (filterData) socketRef?.current?.emit("addFilterInfo", filterData.data);
+    socketRef?.current?.on("getFilterInfo", (filterInfo) => {
       // console.log("filter info", filterInfo); ====================================>>>
 
       if (filterInfo?.length !== 0) {
@@ -720,8 +721,8 @@ const NearByBusStop = ({ showMenu, navigation }) => {
           _map.current.animateToRegion(
             {
               ...coordinate,
-              latitudeDelta: region.latitudeDelta,
-              longitudeDelta: region.longitudeDelta,
+              latitudeDelta: region?.latitudeDelta,
+              longitudeDelta: region?.longitudeDelta,
             },
             350
           );
@@ -791,9 +792,8 @@ const NearByBusStop = ({ showMenu, navigation }) => {
           // markerAnimated(marker?.coordinate);
           const coords = new AnimatedRegion(marker?.coordinate);
           return (
-            <>
-              <Marker.Animated
-                key={index}
+            <View key={index}>
+              <MarkerAnimated
                 ref={markerRef}
                 coordinate={coords}
                 title={marker.name}
@@ -812,24 +812,26 @@ const NearByBusStop = ({ showMenu, navigation }) => {
                     style={[styles.markerStyle, scaleStyle]}
                   ></Animated.Image>
                 </Animated.View>
-              </Marker.Animated>
+              </MarkerAnimated>
 
-              <MapViewDirections
-                origin={marker?.coordinate}
-                destination={marker?.destination}
-                apikey={Key.apiKey}
-                strokeWidth={3}
-                strokeColor="hotpink"
-                optimizeWaypoints={true}
-                onReady={(result) => {
-                  _map.current.fitToCoordinates(result.coordinates, {});
-                }}
-              />
-            </>
+              {Object.keys(marker?.destination).length > 0 && (
+                <MapViewDirections
+                  origin={marker?.coordinate}
+                  destination={marker?.destination}
+                  apikey={Key.apiKey}
+                  strokeWidth={3}
+                  strokeColor="hotpink"
+                  optimizeWaypoints={true}
+                  onReady={(result) => {
+                    _map.current.fitToCoordinates(result.coordinates, {});
+                  }}
+                />
+              )}
+            </View>
           );
         })}
 
-        {userInfo?.type === "user" && (
+        {userInfo?.type === "user" && desLocation && location ? (
           <>
             <MapViewDirections
               origin={location}
@@ -856,7 +858,7 @@ const NearByBusStop = ({ showMenu, navigation }) => {
               </View>
             </Marker>
           </>
-        )}
+        ) : null}
       </MapView>
 
       {/* center icon  */}
