@@ -27,8 +27,6 @@ const AddDestinationScreen = ({ navigation }) => {
   const [currentLocation, setCurrentLocation] = useState("");
   const [destinationLocation, setDestinationLocation] = useState("");
 
-  console.log("TTTTTTTTTTddddddd", currentLocation);
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
       <StatusBar translucent={false} backgroundColor={Colors.primaryColor} />
@@ -93,11 +91,11 @@ const AddDestinationScreen = ({ navigation }) => {
     const locationDetails = useSelector((state) => state?.rootSlice.location);
     const dispatch = useDispatch();
 
-    console.log("LLLLLLLLLL", locationDetails);
+    console.log("destination location...", locationDetails);
 
     return (
       <View style={styles.locationInfoWrapStyle}>
-        <View
+        {/* <View
           style={{
             marginHorizontal: Sizes.fixPadding + 5.0,
             flexDirection: "row",
@@ -138,7 +136,7 @@ const AddDestinationScreen = ({ navigation }) => {
             •{`\n`}•{`\n`}•
           </Text>
           <View style={styles.locationDividerStyle} />
-        </View>
+        </View> */}
         <View
           style={{
             marginHorizontal: Sizes.fixPadding + 5.0,
@@ -150,18 +148,6 @@ const AddDestinationScreen = ({ navigation }) => {
             source={require("../../assets/images/icons/location.png")}
             style={{ width: 22.0, height: 22.0, resizeMode: "contain" }}
           />
-          {/* <TextInput
-            value={destinationLocation}
-            onChangeText={(value) => setDestinationLocation(value)}
-            placeholder="Your destination location"
-            placeholderTextColor={Colors.blackColor}
-            selectionColor={Colors.primaryColor}
-            style={{
-              flex: 1,
-              marginLeft: Sizes.fixPadding * 2.0,
-              ...Fonts.blackColor15Regular,
-            }}
-          /> */}
           <GooglePlacesAutocomplete
             placeholder="Your destination location"
             placeholderTextColor={Colors.blackColor}
@@ -181,7 +167,7 @@ const AddDestinationScreen = ({ navigation }) => {
             styles={{
               textInput: {
                 backgroundColor: "rgba(111, 111, 111, 0.05)",
-                marginLeft: Sizes.fixPadding * 2.0,
+                marginLeft: Sizes.fixPadding * 1.0,
                 ...Fonts.blackColor15Regular,
               },
             }}
@@ -192,10 +178,10 @@ const AddDestinationScreen = ({ navigation }) => {
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => {
-            if (locationDetails?.currLocation && locationDetails?.desLocation) {
+            if (locationDetails?.desLocation) {
               navigation.navigate("Home");
             } else {
-              alert("Please complete location details!");
+              alert("Please add destination location!");
             }
           }}
           style={styles.buttonStyle}

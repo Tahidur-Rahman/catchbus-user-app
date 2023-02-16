@@ -13,24 +13,35 @@ import {
   View,
   ScrollView,
   Platform,
+  Pressable,
+  Modal,
+  TextInput,
+  Alert,
 } from "react-native";
 import { Colors, Fonts, Sizes } from "../../constants/styles";
-import { MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
+import { MaterialIcons, FontAwesome5, Entypo } from "@expo/vector-icons";
 import MapView, {
   PROVIDER_GOOGLE,
   Marker,
   AnimatedRegion,
+  MarkerAnimated,
 } from "react-native-maps";
 import { Dialog } from "@rneui/themed";
 import { useFocusEffect } from "@react-navigation/native";
 import { useDispatch, useSelector } from "react-redux";
-import { setUser } from "../../redux/features/rootSlice";
+import {
+  setFilterData,
+  setLocation,
+  setUser,
+} from "../../redux/features/rootSlice";
 import { removeData } from "../../utils/AsyncStorageManager";
 import { io } from "socket.io-client";
 import { getCurrentLocation } from "../../utils/getCurrentLocation";
 import * as Location from "expo-location";
 import Key from "../../constants/key";
 import MapViewDirections from "react-native-maps-directions";
+import { Menu, MenuItem } from "react-native-material-menu";
+import bus_zones from "../../constants/bus_zones";
 
 // const markers = [
 //   {
@@ -407,6 +418,11 @@ const HomeScreen = ({ navigation, route }) => {
   }
 
   function addDestinationInfo() {
+    const [busZone, setBusZone] = useState({});
+    const [showFilterModal, setShowFilterModal] = useState(false);
+    const [filterValue, setFilterValue] = useState("");
+    const dispatch = useDispatch();
+
     return (
       <TouchableOpacity
         activeOpacity={0.9}
@@ -426,6 +442,100 @@ const HomeScreen = ({ navigation, route }) => {
         >
           Tap to add destination
         </Text>
+        <Pressable onPress={() => setShowFilterModal(true)}>
+          <FontAwesome5
+            name="sliders-h"
+            size={20}
+            color={Colors.primaryColor}
+          />
+        </Pressable>
+
+        {/* show filter modal  */}
+        <Menu
+          visible={showFilterModal}
+          style={{
+            paddingTop: Sizes.fixPadding,
+            marginLeft: 30,
+            width: Dimensions.get("window").width,
+            height: Dimensions.get("window").height - 250,
+            borderRadius: 30,
+            flex: 1,
+          }}
+          onRequestClose={() => setShowFilterModal(false)}
+        >
+          {/* input field  */}
+          <TextInput
+            placeholder="Filter by bus zone / bus number"
+            value={filterValue}
+            onChangeText={setFilterValue}
+            style={styles.addDestinationInfoWrapStyle}
+          />
+          {/* button  */}
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => {
+              dispatch(setFilterData({ data: filterValue }));
+              setFilterValue("");
+              setShowFilterModal(false);
+            }}
+            style={styles.buttonStyle}
+          >
+            <Text style={{ ...Fonts.whiteColor20SemiBold }}>Filter</Text>
+          </TouchableOpacity>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            style={{
+              marginLeft: 6,
+              marginBottom: 20,
+            }}
+          >
+            {bus_zones.map((item, index) => (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingVertical: Sizes.fixPadding - 50.0,
+                }}
+              >
+                <MenuItem
+                  key={index}
+                  textStyle={{
+                    // marginTop: Sizes.fixPadding - 20.0,
+                    ...Fonts.blackColor16Medium,
+                    // textAlign: "center"
+                  }}
+                  onPress={() => {
+                    setBusZone(item);
+                    dispatch(
+                      setLocation({
+                        desLocation: {
+                          latitude: item.destination.location.lat,
+                          longitude: item.destination.location.lng,
+                        },
+                        currLocation: {
+                          latitude: item.origin.location.lat,
+                          longitude: item.origin.location.lng,
+                        },
+                      })
+                    );
+                    setShowFilterModal(false);
+                  }}
+                >
+                  {item.origin.name + " -  " + item.destination.name}
+                </MenuItem>
+
+                {busZone == item && (
+                  <FontAwesome5
+                    name="check-circle"
+                    size={20}
+                    color={Colors.primaryColor}
+                  />
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        </Menu>
       </TouchableOpacity>
     );
   }
@@ -478,97 +588,108 @@ const HomeScreen = ({ navigation, route }) => {
 const cardWidth = width / 1.5;
 
 const NearByBusStop = ({ showMenu, navigation }) => {
-  const { currLocation, desLocation } = useSelector(
-    (state) => state.rootSlice.location
-  );
+  const { location: loc, filterData } = useSelector((state) => state.rootSlice);
+  const { currLocation, desLocation } = loc;
   const socketRef = useRef();
-  const [location, setLocation] = useState(currLocation ?? {});
+  const [location, setLocation] = useState({});
   const userInfo = useSelector((state) => state.rootSlice?.user);
   const [markerList, setMarkerList] = useState([]);
+  const _map = React.useRef(null);
   const markerRef = useRef();
+  const dispatch = useDispatch();
 
   // connect socket client
   useEffect(() => {
-    const baseUrl = `http://${
-      Platform.OS === "ios" ? "localhost" : "10.0.2.2"
-    }:3000`;
-    // const baseUrl = "https://catchbus-backend.up.railway.app";
-    socketRef.current = io(baseUrl);
+    handleFetchFilterData();
+    handleCurrentLocation();
+    // const baseUrl = `http://${
+    //   Platform.OS === "ios" ? "localhost" : "10.0.2.2"
+    // }:3000`;
+    const baseUrl = "https://catchbus-backend.up.railway.app";
+    socketRef.current = io(baseUrl, {
+      upgrade: false,
+      transports: ["websocket"],
+    });
   }, []);
 
   useEffect(() => {
-    if (currLocation) setLocation(currLocation);
+    setLocation(currLocation);
+
     if (location?.latitude) {
       const driverData = {
         coordinate: {
           latitude: location?.latitude,
           longitude: location?.longitude,
+          latitudeDelta: 0.035,
+          longitudeDelta: 0.035,
         },
 
         destination: {
           // for test
           latitude: desLocation?.latitude,
           longitude: desLocation?.longitude,
+          latitudeDelta: 0.035,
+          longitudeDelta: 0.035,
         },
         stationName: "test",
-        stationImage: require("../../assets/images/busStations/station1.png"),
+        // stationImage: require("../../assets/images/busStations/station1.png"),
         distance: "1 km",
         time: "5min",
-        id: userInfo?._id,
-        name: userInfo?.name,
-        email: userInfo?.email,
-        phone: userInfo?.phone_number,
+        id: userInfo._id,
+        name: userInfo.name,
+        email: userInfo.email,
+        phone: userInfo.phone_number,
+        photo: userInfo.photo,
+        vehicle_number: userInfo.vehicle_number,
+        bus_zone: userInfo.bus_zone,
       };
-      if (userInfo.type === "driver") {
+      if (userInfo?.type === "driver") {
         socketRef?.current.emit("addDriver", driverData);
       }
-      socketRef?.current.on("getDrivers", (driversInfo) => {
-        console.log("socket drivers...", driversInfo);
-        setMarkerList(driversInfo);
-      });
+      if (!filterData?.data) {
+        socketRef?.current.on("getDrivers", (driversInfo) => {
+          // console.log("socket drivers...", driversInfo);=======================>>
+          setMarkerList(driversInfo);
+        });
+      }
     }
   }, [location, currLocation, desLocation]);
 
   useEffect(() => {
-    if (currLocation && userInfo.type === "user") {
-      socketRef.current.emit("addUserLocation", currLocation);
+    if (userInfo?.type === "user") {
+      socketRef.current.emit("addUserLocation", location);
       socketRef.current.on("getNearbyDrivers", (nearbyDrivers) => {
         console.log("nearbyDrivers", nearbyDrivers);
       });
     }
-  }, [currLocation]);
+  }, []);
+
+  const handleCurrentLocation = async () => {
+    const loc = await getCurrentLocation();
+    setLocation({ latitude: loc?.latitude, longitude: loc?.longitude });
+  };
+  const handleFetchFilterData = async () => {
+    if (filterData) socketRef?.current.emit("addFilterInfo", filterData.data);
+    socketRef?.current.on("getFilterInfo", (filterInfo) => {
+      // console.log("filter info", filterInfo); ====================================>>>
+
+      if (filterInfo?.length !== 0) {
+        setMarkerList(filterInfo);
+        // Alert.alert("Success", "Filter result funded for bus number", filterInfo.vehicle_number);
+      } else {
+        dispatch(setFilterData({}));
+        Alert.alert("Error", "Nothing is found");
+      }
+    });
+  };
 
   useEffect(() => {
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        return console.log("Permission denied");
-      }
-
-      let location = await Location.getCurrentPositionAsync({});
-      !currLocation &&
-        setLocation({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
-
-      const watchId = Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 4000,
-        },
-        (loc) => {
-          !currLocation &&
-            setLocation({
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-            });
-        }
-      );
-
-      return () => Location.clearWatchAsync(watchId);
-    })();
-  }, []);
+    const interval = setInterval(() => {
+      filterData?.data && handleFetchFilterData();
+      handleCurrentLocation();
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [filterData]);
 
   const region = {
     latitude: location?.latitude,
@@ -625,20 +746,21 @@ const NearByBusStop = ({ showMenu, navigation }) => {
     return { scale };
   });
 
-  const _map = React.useRef(null);
   const markerAnimated = (coordinate) => {
-    const newCoords = {
-      latitude: coordinate?.latitude,
-      longitude: coordinate?.longitude,
-    };
-    if (!Platform.OS === "android") {
+    if (Platform.OS === "android") {
       if (markerRef.current) {
-        markerRef.current.animateMarkerToCoordinate(newCoords, 4000);
+        markerRef.current.animateMarkerToCoordinate(coordinate, 15000);
       }
     } else {
       // coordinate.timing(newCoords).start();
     }
   };
+
+  // const handleCenterLocation = () => {
+  //   if (_map.current) {
+  //     _map.current.animateToRegion(region, 0);
+  //   }
+  // };
 
   return (
     <View
@@ -666,11 +788,16 @@ const NearByBusStop = ({ showMenu, navigation }) => {
               },
             ],
           };
-          markerAnimated(marker?.coordinate);
-          const coords = new AnimatedRegion(marker.coordinate);
+          // markerAnimated(marker?.coordinate);
+          const coords = new AnimatedRegion(marker?.coordinate);
           return (
             <>
-              <Marker.Animated key={index} ref={markerRef} coordinate={coords}>
+              <Marker.Animated
+                key={index}
+                ref={markerRef}
+                coordinate={coords}
+                title={marker.name}
+              >
                 <Animated.View
                   style={{
                     alignItems: "center",
@@ -701,7 +828,51 @@ const NearByBusStop = ({ showMenu, navigation }) => {
             </>
           );
         })}
+
+        {userInfo?.type === "user" && (
+          <>
+            <MapViewDirections
+              origin={location}
+              destination={desLocation}
+              apikey={Key.apiKey}
+              strokeWidth={3}
+              strokeColor="hotpink"
+              optimizeWaypoints={true}
+              // onReady={(result) => {
+              //   _map.current.fitToCoordinates(result.coordinates, {});
+              // }}
+            />
+            <Marker
+              key={0}
+              // ref={userMarkerRef}
+              coordinate={location}
+            >
+              <View>
+                <FontAwesome5
+                  name="user-alt"
+                  size={30}
+                  color={Colors.primaryColor}
+                />
+              </View>
+            </Marker>
+          </>
+        )}
       </MapView>
+
+      {/* center icon  */}
+      {/* <TouchableOpacity
+        onPress={() => handleCenterLocation()}
+        style={{
+          position: "absolute",
+          right: 10,
+          top: 10,
+          backgroundColor: "#ffffff",
+          borderRadius: 50,
+          padding: 6,
+        }}
+      >
+        <Entypo name="direction" size={25} color="red" />
+      </TouchableOpacity> */}
 
       <Animated.ScrollView
         horizontal={true}
@@ -889,6 +1060,16 @@ const styles = StyleSheet.create({
     marginHorizontal: Sizes.fixPadding * 2.0,
     flexDirection: "row",
     alignItems: "center",
+  },
+  buttonStyle: {
+    backgroundColor: Colors.primaryColor,
+    borderRadius: Sizes.fixPadding - 4.0,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Sizes.fixPadding - 5.0,
+    margin: Sizes.fixPadding * 2.0,
+    elevation: 1.5,
+    shadowColor: Colors.primaryColor,
   },
 });
 
